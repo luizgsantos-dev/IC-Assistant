@@ -1,39 +1,56 @@
-# Assistente IA para IC
+# IC-UFMT Smart Agent
 
-Sistema de chat web baseado em RAG (Retrieval-Augmented Generation) que permite ao usuário alimentar documentos e a IA responder perguntas sobre processos burocráticos, aproveitamento de matérias, projetos de pesquisa, eventos e calendário acadêmico do IC, usando apenas as informações fornecidas.
+Sistema de chat web baseado em RAG (Retrieval-Augmented Generation) para o Instituto de Computação (IC) da Universidade Federal de Mato Grosso (UFMT). O agente serve como uma "fonte única de verdade", fornecendo respostas precisas e baseadas em documentos para questões burocráticas e acadêmicas.
+
+## 🏛️ Objetivos Principais
+
+- **Otimização Burocrática:** Automatizar respostas sobre processos de compras, solicitações de material e procedimentos oficiais para servidores.
+- **Empoderamento do Discente:** Fornecer orientação 24/7 sobre processos acadêmicos como aproveitamento de matérias, prazos de matrícula e requisitos de graduação.
+- **Centralização de Informações:** Atuar como repositório dinâmico para histórico do IC, projetos de pesquisa (ex: laboratório FATA), e eventos passados (ex: IC-NEXUS).
 
 ## 🏗️ Arquitetura
 
 ```
 [Interface Web] ↔ [API FastAPI] ↔ [Sistema RAG] ↔ [Vector DB (ChromaDB)]
-                                         ↓
-                                  [Documentos/Pasta]
-                                         ↓
-                                    [LLM Provider]
+                                          ↓
+                                   [Documentos/Pasta]
+                                          ↓
+                                     [LLM Provider]
 ```
 
 ## ✨ Funcionalidades
 
-1. **Chat Interativo**: Interface web para fazer perguntas
-2. **RAG**: Busca nos documentos fornecidos antes de responder
-3. **Upload de Documentos**: Colocar arquivos na pasta `data/` atualiza automaticamente o conhecimento
-4. **Múltiplos Formatos**: Suporte a PDF, TXT, MD
-5. **Respostas Contextualizadas**: A IA só usa informações dos documentos fornecidos
-6. **Múltiplos Provedores de LLM**: Suporte para OpenAI, Anthropic e Ollama
+1. **Chat Interativo:** Interface web para fazer perguntas
+2. **RAG com Zero Alucinação:** Busca nos documentos fornecidos antes de responder, garantindo respostas baseadas apenas em fontes verificadas
+3. **Upload de Documentos:** Colocar arquivos na pasta `data/` atualiza automaticamente o conhecimento
+4. **Múltiplos Formatos:** Suporte a PDF, TXT, MD
+5. **Respostas Contextualizadas:** A IA só usa informações dos documentos fornecidos
+6. **Múltiplos Provedores de LLM:** Suporte para OpenAI, Anthropic, Ollama e **Google Gemini** (recomendado)
+
+## ⚙️ Stack Técnica
+
+| Componente | Tecnologia | Função |
+|------------|------------|--------|
+| LLM Core | **Gemini 1.5 Flash** (recomendado) | Processamento de linguagem natural de alta velocidade com janela de contexto de 1M+ tokens |
+| Camada Lógica | RAG | Garante que a IA responda apenas com base em PDFs e resoluções institucionais |
+| Backend | FastAPI | API REST de alta performance |
+| Vector DB | ChromaDB | Armazenamento e busca semântica de embeddings |
+| Motor de Segurança | Zero-Hallucination Guardrails | Prompt especializado para evitar alucinações |
 
 ## 🛠️ Tecnologias
 
 - **Python 3.10+**
-- **FastAPI**: API backend
-- **LangChain**: Orquestração RAG
-- **ChromaDB**: Banco de dados vetorial
-- **OpenAI/Anthropic/Ollama**: Provedores de LLM
-- **HTML/CSS/JavaScript**: Frontend simples
+- **FastAPI:** API backend
+- **LangChain:** Orquestração RAG
+- **ChromaDB:** Banco de dados vetorial
+- **OpenAI/Anthropic/Ollama/Gemini:** Provedores de LLM
+- **HTML/CSS/JavaScript:** Frontend simples
 
 ## 📋 Pré-requisitos
 
 - Python 3.10 ou superior
 - pip (gerenciador de pacotes Python)
+- Chave de API do provedor de LLM escolhido (Google AI Studio recomendado para Gemini)
 - (Opcional) Ollama instalado localmente, se usar Ollama como provedor de LLM
 
 ## 🚀 Instalação
@@ -47,7 +64,7 @@ python -m venv venv
 
 3. **Ative o ambiente virtual**:
    - Windows: `venv\Scripts\activate`
-   - Linux/Mac: `source venv/bin/activate`
+   - Linux/Mac: `source venv/activate`
 
 4. **Instale as dependências**:
 ```bash
@@ -64,7 +81,7 @@ cp .env.example .env
 ```
 
 6. **Configure o provedor de LLM no arquivo `.env`**:
-   - Escolha entre `openai`, `anthropic` ou `ollama`
+   - Escolha entre `openai`, `anthropic`, `ollama` ou `gemini`
    - Configure as chaves de API correspondentes
    - Se usar Ollama, certifique-se de que está rodando localmente
 
@@ -75,6 +92,13 @@ Edite o arquivo `.env` com suas configurações:
 ### Provedor de LLM
 
 Escolha um dos seguintes:
+
+**Google Gemini (RECOMENDADO):**
+```env
+LLM_PROVIDER=gemini
+GOOGLE_API_KEY=sua_chave_aqui
+GEMINI_MODEL=gemini-1.5-flash
+```
 
 **OpenAI:**
 ```env
@@ -119,6 +143,13 @@ Coloque seus documentos (PDF, TXT, MD) na pasta `backend/data/`. O sistema irá:
 - Criar embeddings e armazenar no ChromaDB
 - Monitorar a pasta para atualizações automáticas
 
+**Documentos recomendados para o IC-UFMT:**
+- Resoluções CONSEP e UFMT
+- Manuais de procedimentos administrativos (SEI)
+- Regulamentos acadêmicos
+- Calendário acadêmico
+- Documentação de projetos de pesquisa
+
 ### 2. Iniciar o Backend
 
 ```bash
@@ -155,6 +186,12 @@ Use a interface web para fazer perguntas sobre os documentos fornecidos. O siste
 - Gerar uma resposta baseada apenas no contexto encontrado
 - Mostrar as fontes utilizadas
 
+**Exemplos de perguntas:**
+- "Qual é o processo para aproveitamento de matérias?"
+- "Como solicito material de escritório pelo SEI?"
+- "Quais são os requisitos para graduação?"
+- "Qual é a resolução que rege o processo de compras?"
+
 ## 📁 Estrutura do Projeto
 
 ```
@@ -166,9 +203,9 @@ ic-assistant/
 │   │   ├── models/
 │   │   │   └── chat.py          # Modelos Pydantic
 │   │   ├── services/
-│   │   │   ├── rag_service.py   # Serviço RAG principal
+│   │   │   ├── rag_service.py   # Serviço RAG principal com prompt IC-UFMT
 │   │   │   ├── document_processor.py  # Processamento de documentos
-│   │   │   └── llm_provider.py  # Abstração para múltiplos LLMs
+│   │   │   └── llm_provider.py  # Abstração para múltiplos LLMs (inclui Gemini)
 │   │   └── routes/
 │   │       ├── chat.py          # Endpoints de chat
 │   │       └── documents.py     # Endpoints de documentos
@@ -199,45 +236,62 @@ Envia uma mensagem e recebe uma resposta baseada nos documentos.
 **Response:**
 ```json
 {
-  "response": "Baseado nos documentos fornecidos...",
-  "sources": ["documento1.pdf", "documento2.txt"]
+  "response": "De acordo com a Resolução CONSEP nº XX/XXXX...",
+  "sources": ["regulamento_academico.pdf", "resolucao_aproveitamento.pdf"]
 }
 ```
 
 ### GET `/documents`
-Lista todos os documentos na pasta `data/`.
+Lista os documentos disponíveis na pasta de dados.
+
+**Response:**
+```json
+{
+  "documents": [
+    {"filename": "regulamento_academico.pdf", "file_type": ".pdf", "processed": true},
+    {"filename": "calendario_2024.txt", "file_type": ".txt", "processed": true}
+  ]
+}
+```
 
 ### POST `/documents/refresh`
-Força a reprocessamento de todos os documentos e atualização do vectorstore.
+Força o reprocessamento de todos os documentos.
 
-## 🔍 Troubleshooting
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Documents processed and vectorstore updated"
+}
+```
 
-### Erro: "OPENAI_API_KEY environment variable is required"
-- Certifique-se de ter configurado o arquivo `.env` com suas chaves de API
-- Verifique se o arquivo `.env` está na raiz do projeto `ic-assistant/`
+### GET `/api/health`
+Verifica a saúde da API.
 
-### Erro: "Vectorstore not initialized"
-- Certifique-se de que a pasta `backend/data/` existe e contém documentos
-- Tente executar `/documents/refresh` para reprocessar os documentos
+**Response:**
+```json
+{
+  "status": "healthy"
+}
+```
 
-### Frontend não conecta com o backend
-- Verifique se o backend está rodando
-- Verifique se a URL no `frontend/app.js` corresponde à porta do backend
-- Verifique as configurações de CORS (por padrão está permitindo todas as origens)
+## 🔒 Guardrails de Zero Alucinação
 
-### Ollama não funciona
-- Certifique-se de que o Ollama está instalado e rodando
-- Verifique se o modelo especificado em `OLLAMA_MODEL` está disponível
-- Teste acessando `http://localhost:11434` no navegador
+O sistema implementa guardrails rigorosos para evitar alucinações:
 
-## 📚 Próximos Passos
+1. **Prompt Especializado:** O prompt do sistema instrui a IA a responder APENAS com base no contexto fornecido.
+2. **Citação de Fontes:** Todas as respostas incluem as fontes documentais utilizadas.
+3. **Resposta de Incerteza:** Quando a informação não está nos documentos, o sistema responde explicitamente que não encontrou a informação.
+4. **Formato Estruturado:** Para processos administrativos, o formato O QUÊ, ONDE, COMO, POR QUÊ garante respostas completas e verificáveis.
 
-1. Adicionar mais formatos de arquivo (DOCX, etc.)
-2. Implementar autenticação
-3. Adicionar histórico de conversação persistente
-4. Melhorar a interface do frontend
-5. Adicionar métricas e monitoramento
+## 🚀 Por Que Isso Importa
+
+Em um ambiente universitário, "quase certo" não é bom o suficiente para burocracia. Um erro em um prazo acadêmico ou código de compras pode causar meses de atrasos. Este agente:
+
+- **Reduz Erros Humanos:** Garante que todos sigam a versão mais recente dos regulamentos.
+- **Aumenta Eficiência:** Libera a secretaria para tarefas de alto valor em vez de responder FAQs repetitivas.
+- **Promove Transparência:** Torna as regras institucionais acessíveis e compreensíveis para toda a comunidade.
 
 ## 📄 Licença
 
-Este projeto é fornecido como está, para uso educacional e de pesquisa.
+Este projeto é desenvolvido para uso institucional do IC-UFMT.

@@ -1,9 +1,10 @@
-"""LLM provider abstraction for OpenAI, Anthropic, and Ollama."""
+"""LLM provider abstraction for OpenAI, Anthropic, Ollama, and Google Gemini."""
 import os
 from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_community.llms import Ollama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import BaseLanguageModel
 
 
@@ -45,8 +46,19 @@ class LLMProvider:
                 base_url=base_url,
                 temperature=0.7
             )
+        elif self.provider == "gemini" or self.provider == "google":
+            api_key = os.getenv("GOOGLE_API_KEY")
+            model = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY environment variable is required when using Gemini provider")
+            self.llm = ChatGoogleGenerativeAI(
+                model=model,
+                google_api_key=api_key,
+                temperature=0.7,
+                convert_system_message_to_human=True
+            )
         else:
-            raise ValueError(f"Unsupported LLM provider: {self.provider}. Supported: openai, anthropic, ollama")
+            raise ValueError(f"Unsupported LLM provider: {self.provider}. Supported: openai, anthropic, ollama, gemini")
     
     def get_llm(self) -> BaseLanguageModel:
         """Get the initialized LLM instance."""
