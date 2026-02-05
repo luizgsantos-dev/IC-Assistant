@@ -1,226 +1,268 @@
 # IC-UFMT Smart Agent
 
-Sistema de chat web baseado em RAG (Retrieval-Augmented Generation) para o Instituto de Computação (IC) da Universidade Federal de Mato Grosso (UFMT). O agente serve como uma "fonte única de verdade", fornecendo respostas precisas e baseadas em documentos para questões burocráticas e acadêmicas.
+Sistema de chat web baseado em RAG (Retrieval-Augmented Generation) para o Instituto de Computação (IC) da Universidade Federal de Mato Grosso (UFMT). O agente serve como uma "fonte unica de verdade", fornecendo respostas precisas e baseadas em documentos para questoes burocraticas e academicas.
 
-## 🏛️ Objetivos Principais
+## Objetivos Principais
 
-- **Otimização Burocrática:** Automatizar respostas sobre processos de compras, solicitações de material e procedimentos oficiais para servidores.
-- **Empoderamento do Discente:** Fornecer orientação 24/7 sobre processos acadêmicos como aproveitamento de matérias, prazos de matrícula e requisitos de graduação.
-- **Centralização de Informações:** Atuar como repositório dinâmico para histórico do IC, projetos de pesquisa (ex: laboratório FATA), e eventos passados (ex: IC-NEXUS).
+- **Otimizacao Burocratica:** Automatizar respostas sobre processos de compras, solicitacoes de material e procedimentos oficiais para servidores.
+- **Empoderamento do Discente:** Fornecer orientacao 24/7 sobre processos academicos como aproveitamento de materias, prazos de matricula e requisitos de graduacao.
+- **Centralizacao de Informacoes:** Atuar como repositorio dinamico para historico do IC, projetos de pesquisa (ex: laboratorio FATA), e eventos passados (ex: IC-NEXUS).
 
-## 🏗️ Arquitetura
+## Arquitetura
 
 ```
-[Interface Web] ↔ [API FastAPI] ↔ [Sistema RAG] ↔ [Vector DB (ChromaDB)]
-                                          ↓
-                                   [Documentos/Pasta]
-                                          ↓
-                                     [LLM Provider]
+[Interface Web] <-> [API FastAPI] <-> [Sistema RAG] <-> [Vector DB (ChromaDB)]
+                                            |
+                                     [Documentos/Pasta]
+                                            |
+                                      [LLM Provider]
 ```
 
-## ✨ Funcionalidades
+## Funcionalidades
 
 1. **Chat Interativo:** Interface web para fazer perguntas
-2. **RAG com Zero Alucinação:** Busca nos documentos fornecidos antes de responder, garantindo respostas baseadas apenas em fontes verificadas
+2. **RAG com Zero Alucinacao:** Busca nos documentos fornecidos antes de responder, garantindo respostas baseadas apenas em fontes verificadas
 3. **Upload de Documentos:** Colocar arquivos na pasta `data/` atualiza automaticamente o conhecimento
-4. **Múltiplos Formatos:** Suporte a PDF, TXT, MD
-5. **Respostas Contextualizadas:** A IA só usa informações dos documentos fornecidos
-6. **Múltiplos Provedores de LLM:** Suporte para OpenAI, Anthropic, Ollama e **Google Gemini** (recomendado)
+4. **Multiplos Formatos:** Suporte a PDF, TXT, MD
+5. **Respostas Contextualizadas:** A IA so usa informacoes dos documentos fornecidos
+6. **Multiplos Provedores de LLM:** Suporte para OpenAI, Anthropic, Ollama e Google Gemini (recomendado)
 
-## ⚙️ Stack Técnica
+## Stack Tecnica
 
-| Componente | Tecnologia | Função |
+| Componente | Tecnologia | Funcao |
 |------------|------------|--------|
-| LLM Core | **Gemini 1.5 Flash** (recomendado) | Processamento de linguagem natural de alta velocidade com janela de contexto de 1M+ tokens |
-| Camada Lógica | RAG | Garante que a IA responda apenas com base em PDFs e resoluções institucionais |
+| LLM Core | Gemini 1.5 Flash (recomendado) | Processamento de linguagem natural de alta velocidade com janela de contexto de 1M+ tokens |
+| Camada Logica | RAG | Garante que a IA responda apenas com base em PDFs e resolucoes institucionais |
 | Backend | FastAPI | API REST de alta performance |
-| Vector DB | ChromaDB | Armazenamento e busca semântica de embeddings |
-| Motor de Segurança | Zero-Hallucination Guardrails | Prompt especializado para evitar alucinações |
+| Vector DB | ChromaDB | Armazenamento e busca semantica de embeddings |
+| Motor de Seguranca | Zero-Hallucination Guardrails | Prompt especializado para evitar alucinacoes |
 
-## 🛠️ Tecnologias
+---
 
-- **Python 3.10+**
-- **FastAPI:** API backend
-- **LangChain:** Orquestração RAG
-- **ChromaDB:** Banco de dados vetorial
-- **OpenAI/Anthropic/Ollama/Gemini:** Provedores de LLM
-- **HTML/CSS/JavaScript:** Frontend simples
+## Guia de Instalacao Passo a Passo
 
-## 📋 Pré-requisitos
+### Pre-requisitos
+
+Antes de comecar, certifique-se de ter instalado:
 
 - Python 3.10 ou superior
 - pip (gerenciador de pacotes Python)
-- Chave de API do provedor de LLM escolhido (Google AI Studio recomendado para Gemini)
-- (Opcional) Ollama instalado localmente, se usar Ollama como provedor de LLM
+- Git (para clonar o repositorio)
 
-## 🚀 Instalação
+### Passo 1: Clonar o Repositorio
 
-1. **Clone ou baixe o projeto**
-
-2. **Crie um ambiente virtual (recomendado)**:
 ```bash
-python -m venv venv
+git clone https://github.com/luizgsantos-dev/IC-Assistant.git
+cd IC-Assistant
 ```
 
-3. **Ative o ambiente virtual**:
-   - Windows: `venv\Scripts\activate`
-   - Linux/Mac: `source venv/activate`
+### Passo 2: Criar Ambiente Virtual
 
-4. **Instale as dependências**:
+O ambiente virtual isola as dependencias do projeto.
+
+**No Linux/macOS:**
 ```bash
-cd ic-assistant/backend
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**No Windows (PowerShell):**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+**No Windows (CMD):**
+```cmd
+python -m venv venv
+venv\Scripts\activate.bat
+```
+
+Voce sabera que o ambiente esta ativo quando ver `(venv)` no inicio do prompt.
+
+### Passo 3: Instalar Dependencias
+
+```bash
+cd backend
 pip install -r requirements.txt
 ```
 
-5. **Configure as variáveis de ambiente**:
+Isso instalara todos os pacotes necessarios: FastAPI, LangChain, ChromaDB, etc.
+
+### Passo 4: Obter Chave de API do Gemini
+
+1. Acesse [Google AI Studio](https://aistudio.google.com/)
+2. Faca login com sua conta Google
+3. Clique em "Get API Key" ou "Criar chave de API"
+4. Copie a chave gerada
+
+### Passo 5: Configurar Variaveis de Ambiente
+
+Volte para a raiz do projeto e copie o arquivo de exemplo:
+
 ```bash
-# Copie o arquivo .env.example para .env
+cd ..
 cp .env.example .env
-
-# Edite o arquivo .env com suas configurações
 ```
 
-6. **Configure o provedor de LLM no arquivo `.env`**:
-   - Escolha entre `openai`, `anthropic`, `ollama` ou `gemini`
-   - Configure as chaves de API correspondentes
-   - Se usar Ollama, certifique-se de que está rodando localmente
+Edite o arquivo `.env` com seu editor preferido:
 
-## 📝 Configuração
+```bash
+nano .env
+# ou
+code .env
+# ou
+vim .env
+```
 
-Edite o arquivo `.env` com suas configurações:
+Configure as seguintes variaveis:
 
-### Provedor de LLM
-
-Escolha um dos seguintes:
-
-**Google Gemini (RECOMENDADO):**
 ```env
+# Provedor de LLM (recomendado: gemini)
 LLM_PROVIDER=gemini
-GOOGLE_API_KEY=sua_chave_aqui
+
+# Sua chave de API do Google
+GOOGLE_API_KEY=sua_chave_aqui_do_passo_4
+
+# Modelo do Gemini
 GEMINI_MODEL=gemini-1.5-flash
-```
 
-**OpenAI:**
-```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sua_chave_aqui
-OPENAI_MODEL=gpt-3.5-turbo
-```
-
-**Anthropic:**
-```env
-LLM_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sua_chave_aqui
-ANTHROPIC_MODEL=claude-3-sonnet-20240229
-```
-
-**Ollama (local):**
-```env
-LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama2
-```
-
-### Embeddings
-
-**OpenAI (recomendado se usar OpenAI para LLM):**
-```env
-EMBEDDING_PROVIDER=openai
-```
-
-**HuggingFace (gratuito, requer download do modelo):**
-```env
+# Provedor de Embeddings (huggingface e gratuito e local)
 EMBEDDING_PROVIDER=huggingface
-HUGGINGFACE_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
-## 🎯 Uso
+### Passo 6: Adicionar Documentos
 
-### 1. Adicionar Documentos
+Coloque seus documentos na pasta `backend/data/`:
 
-Coloque seus documentos (PDF, TXT, MD) na pasta `backend/data/`. O sistema irá:
-- Processar automaticamente os documentos
-- Criar embeddings e armazenar no ChromaDB
-- Monitorar a pasta para atualizações automáticas
+```bash
+# Criar pasta se nao existir
+mkdir -p backend/data
+
+# Copiar seus documentos (PDFs, TXTs, MDs)
+cp /caminho/para/seus/documentos/*.pdf backend/data/
+```
+
+**Tipos de documentos suportados:**
+- `.pdf` - Documentos PDF
+- `.txt` - Arquivos de texto
+- `.md` - Arquivos Markdown
 
 **Documentos recomendados para o IC-UFMT:**
-- Resoluções CONSEP e UFMT
+- Resolucoes CONSEP e UFMT
 - Manuais de procedimentos administrativos (SEI)
-- Regulamentos acadêmicos
-- Calendário acadêmico
-- Documentação de projetos de pesquisa
+- Regulamentos academicos
+- Calendario academico
 
-### 2. Iniciar o Backend
+### Passo 7: Iniciar o Backend
 
 ```bash
-cd ic-assistant/backend
+cd backend
 python -m app.main
 ```
 
-Ou usando uvicorn diretamente:
+Ou usando uvicorn diretamente (com reload automatico):
+
 ```bash
-cd ic-assistant/backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-O servidor estará disponível em `http://localhost:8000`
+Voce vera uma mensagem indicando que o servidor esta rodando:
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
 
-### 3. Abrir o Frontend
+### Passo 8: Abrir o Frontend
 
-Abra o arquivo `frontend/index.html` no seu navegador ou sirva via um servidor HTTP simples:
+**Opcao A - Abrir diretamente no navegador:**
+
+Abra o arquivo `frontend/index.html` diretamente no navegador.
+
+**Opcao B - Servir via servidor HTTP (recomendado):**
+
+Em um novo terminal (mantenha o backend rodando):
 
 ```bash
-# Python 3
-cd ic-assistant/frontend
-python -m http.server 8080
+cd frontend
+python3 -m http.server 8080
 ```
 
 Acesse `http://localhost:8080` no navegador.
 
-**Nota**: Se o backend estiver em uma porta diferente, edite a variável `API_BASE_URL` no arquivo `frontend/app.js`.
+### Passo 9: Testar o Sistema
 
-### 4. Fazer Perguntas
+1. Abra o navegador em `http://localhost:8080`
+2. Digite uma pergunta no campo de texto, por exemplo:
+   - "Qual e o processo para aproveitamento de materias?"
+   - "Como solicito material de escritorio pelo SEI?"
+3. Aguarde a resposta baseada nos documentos fornecidos
 
-Use a interface web para fazer perguntas sobre os documentos fornecidos. O sistema irá:
-- Buscar informações relevantes nos documentos
-- Gerar uma resposta baseada apenas no contexto encontrado
-- Mostrar as fontes utilizadas
+---
 
-**Exemplos de perguntas:**
-- "Qual é o processo para aproveitamento de matérias?"
-- "Como solicito material de escritório pelo SEI?"
-- "Quais são os requisitos para graduação?"
-- "Qual é a resolução que rege o processo de compras?"
+## Configuracoes Alternativas de LLM
 
-## 📁 Estrutura do Projeto
+### Usando OpenAI
 
-```
-ic-assistant/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # FastAPI app principal
-│   │   ├── models/
-│   │   │   └── chat.py          # Modelos Pydantic
-│   │   ├── services/
-│   │   │   ├── rag_service.py   # Serviço RAG principal com prompt IC-UFMT
-│   │   │   ├── document_processor.py  # Processamento de documentos
-│   │   │   └── llm_provider.py  # Abstração para múltiplos LLMs (inclui Gemini)
-│   │   └── routes/
-│   │       ├── chat.py          # Endpoints de chat
-│   │       └── documents.py     # Endpoints de documentos
-│   ├── data/                    # Pasta para documentos (monitorada)
-│   ├── vectorstore/             # Banco vetorial (gerado automaticamente)
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html
-│   ├── app.js
-│   └── styles.css
-├── .env.example
-└── README.md
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sua_chave_openai
+OPENAI_MODEL=gpt-4o-mini
 ```
 
-## 🔧 API Endpoints
+### Usando Anthropic (Claude)
+
+```env
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sua_chave_anthropic
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+```
+
+### Usando Ollama (Local/Gratuito)
+
+1. Instale o Ollama: https://ollama.ai/
+2. Baixe um modelo: `ollama pull llama3.2`
+3. Configure:
+
+```env
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+```
+
+---
+
+## Estrutura do Projeto
+
+```
+IC-Assistant/
+|-- backend/
+|   |-- app/
+|   |   |-- __init__.py
+|   |   |-- main.py              # FastAPI app principal
+|   |   |-- models/
+|   |   |   |-- chat.py          # Modelos Pydantic
+|   |   |-- services/
+|   |   |   |-- rag_service.py   # Servico RAG principal com prompt IC-UFMT
+|   |   |   |-- document_processor.py  # Processamento de documentos
+|   |   |   |-- llm_provider.py  # Abstracao para multiplos LLMs
+|   |   |-- routes/
+|   |       |-- chat.py          # Endpoints de chat
+|   |       |-- documents.py     # Endpoints de documentos
+|   |-- data/                    # Pasta para documentos (monitorada)
+|   |-- vectorstore/             # Banco vetorial (gerado automaticamente)
+|   |-- requirements.txt
+|-- frontend/
+|   |-- index.html
+|   |-- app.js
+|   |-- styles.css
+|-- .env.example
+|-- .gitignore
+|-- README.md
+```
+
+---
+
+## API Endpoints
 
 ### POST `/chat`
 Envia uma mensagem e recebe uma resposta baseada nos documentos.
@@ -228,7 +270,7 @@ Envia uma mensagem e recebe uma resposta baseada nos documentos.
 **Request:**
 ```json
 {
-  "message": "Qual é o processo para aproveitamento de matérias?",
+  "message": "Qual e o processo para aproveitamento de materias?",
   "conversation_history": null
 }
 ```
@@ -236,62 +278,64 @@ Envia uma mensagem e recebe uma resposta baseada nos documentos.
 **Response:**
 ```json
 {
-  "response": "De acordo com a Resolução CONSEP nº XX/XXXX...",
+  "response": "De acordo com a Resolucao CONSEP no XX/XXXX...",
   "sources": ["regulamento_academico.pdf", "resolucao_aproveitamento.pdf"]
 }
 ```
 
 ### GET `/documents`
-Lista os documentos disponíveis na pasta de dados.
-
-**Response:**
-```json
-{
-  "documents": [
-    {"filename": "regulamento_academico.pdf", "file_type": ".pdf", "processed": true},
-    {"filename": "calendario_2024.txt", "file_type": ".txt", "processed": true}
-  ]
-}
-```
+Lista os documentos disponiveis na pasta de dados.
 
 ### POST `/documents/refresh`
-Força o reprocessamento de todos os documentos.
-
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "Documents processed and vectorstore updated"
-}
-```
+Forca o reprocessamento de todos os documentos.
 
 ### GET `/api/health`
-Verifica a saúde da API.
+Verifica a saude da API.
 
-**Response:**
-```json
-{
-  "status": "healthy"
-}
-```
+---
 
-## 🔒 Guardrails de Zero Alucinação
+## Solucao de Problemas
 
-O sistema implementa guardrails rigorosos para evitar alucinações:
+### Erro: "GOOGLE_API_KEY environment variable is required"
+- Verifique se o arquivo `.env` existe na raiz do projeto
+- Verifique se a variavel `GOOGLE_API_KEY` esta configurada corretamente
+- Reinicie o servidor apos modificar o `.env`
+
+### Erro: "No documents found to process"
+- Adicione documentos (PDF, TXT, MD) na pasta `backend/data/`
+- Verifique se os arquivos tem extensao suportada
+
+### Erro de conexao no frontend
+- Verifique se o backend esta rodando na porta 8000
+- Verifique se a variavel `API_BASE_URL` em `frontend/app.js` esta correta
+
+### Embeddings demorando muito
+- Na primeira execucao, o modelo de embeddings sera baixado (pode demorar alguns minutos)
+- Use `EMBEDDING_PROVIDER=huggingface` para embeddings gratuitos e locais
+
+---
+
+## Guardrails de Zero Alucinacao
+
+O sistema implementa guardrails rigorosos para evitar alucinacoes:
 
 1. **Prompt Especializado:** O prompt do sistema instrui a IA a responder APENAS com base no contexto fornecido.
-2. **Citação de Fontes:** Todas as respostas incluem as fontes documentais utilizadas.
-3. **Resposta de Incerteza:** Quando a informação não está nos documentos, o sistema responde explicitamente que não encontrou a informação.
-4. **Formato Estruturado:** Para processos administrativos, o formato O QUÊ, ONDE, COMO, POR QUÊ garante respostas completas e verificáveis.
+2. **Citacao de Fontes:** Todas as respostas incluem as fontes documentais utilizadas.
+3. **Resposta de Incerteza:** Quando a informacao nao esta nos documentos, o sistema responde explicitamente que nao encontrou a informacao.
+4. **Formato Estruturado:** Para processos administrativos, o formato O QUE, ONDE, COMO, POR QUE garante respostas completas e verificaveis.
 
-## 🚀 Por Que Isso Importa
+---
 
-Em um ambiente universitário, "quase certo" não é bom o suficiente para burocracia. Um erro em um prazo acadêmico ou código de compras pode causar meses de atrasos. Este agente:
+## Por Que Isso Importa
 
-- **Reduz Erros Humanos:** Garante que todos sigam a versão mais recente dos regulamentos.
-- **Aumenta Eficiência:** Libera a secretaria para tarefas de alto valor em vez de responder FAQs repetitivas.
-- **Promove Transparência:** Torna as regras institucionais acessíveis e compreensíveis para toda a comunidade.
+Em um ambiente universitario, "quase certo" nao e bom o suficiente para burocracia. Um erro em um prazo academico ou codigo de compras pode causar meses de atrasos. Este agente:
 
-## 📄 Licença
+- **Reduz Erros Humanos:** Garante que todos sigam a versao mais recente dos regulamentos.
+- **Aumenta Eficiencia:** Libera a secretaria para tarefas de alto valor em vez de responder FAQs repetitivas.
+- **Promove Transparencia:** Torna as regras institucionais acessiveis e compreensiveis para toda a comunidade.
 
-Este projeto é desenvolvido para uso institucional do IC-UFMT.
+---
+
+## Licenca
+
+Este projeto e desenvolvido para uso institucional do IC-UFMT.
