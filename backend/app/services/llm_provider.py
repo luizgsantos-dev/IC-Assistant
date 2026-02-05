@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_community.llms import Ollama
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.schema import BaseLanguageModel
+from langchain_core.language_models.base import BaseLanguageModel
 
 
 class LLMProvider:
@@ -20,27 +20,27 @@ class LLMProvider:
         """Initialize the LLM based on provider configuration."""
         if self.provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
-            model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+            model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY environment variable is required when using OpenAI provider")
             self.llm = ChatOpenAI(
                 model=model,
-                openai_api_key=api_key,
+                api_key=api_key,
                 temperature=0.7
             )
         elif self.provider == "anthropic":
             api_key = os.getenv("ANTHROPIC_API_KEY")
-            model = os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")
+            model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY environment variable is required when using Anthropic provider")
             self.llm = ChatAnthropic(
                 model=model,
-                anthropic_api_key=api_key,
+                api_key=api_key,
                 temperature=0.7
             )
         elif self.provider == "ollama":
             base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-            model = os.getenv("OLLAMA_MODEL", "llama2")
+            model = os.getenv("OLLAMA_MODEL", "llama3.2")
             self.llm = Ollama(
                 model=model,
                 base_url=base_url,
