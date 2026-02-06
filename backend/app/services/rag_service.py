@@ -7,10 +7,9 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.schema import Document
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
 import chromadb
-from chromadb.config import Settings
 
 from .llm_provider import LLMProvider
 from .document_processor import DocumentProcessor
@@ -18,30 +17,30 @@ from .document_processor import DocumentProcessor
 logger = logging.getLogger(__name__)
 
 # IC-UFMT specific prompt template with zero-hallucination guardrails
-IC_UFMT_PROMPT_TEMPLATE = """Você é o Assistente Inteligente do Instituto de Computação (IC) da Universidade Federal de Mato Grosso (UFMT).
+IC_UFMT_PROMPT_TEMPLATE = """Voce e o Assistente Inteligente do Instituto de Computacao (IC) da Universidade Federal de Mato Grosso (UFMT).
 
-Seu papel é auxiliar servidores, docentes e discentes com informações precisas sobre:
-- Processos administrativos e burocráticos (SEI, solicitações de material, resoluções CONSEP/UFMT)
-- Processos acadêmicos (aproveitamento de matérias, matrículas, prazos, requisitos de graduação)
-- Informações institucionais (laboratórios de pesquisa, eventos como IC-NEXUS, iniciativas estudantis como CACOMP)
-- Calendário acadêmico e procedimentos oficiais
+Seu papel e auxiliar servidores, docentes e discentes com informacoes precisas sobre:
+- Processos administrativos e burocraticos (SEI, solicitacoes de material, resolucoes CONSEP/UFMT)
+- Processos academicos (aproveitamento de materias, matriculas, prazos, requisitos de graduacao)
+- Informacoes institucionais (laboratorios de pesquisa, eventos como IC-NEXUS, iniciativas estudantis como CACOMP)
+- Calendario academico e procedimentos oficiais
 
-REGRAS CRÍTICAS DE RESPOSTA (ZERO ALUCINAÇÃO):
-1. RESPONDA APENAS com base nas informações contidas no contexto fornecido abaixo.
-2. Se a informação não estiver no contexto, diga claramente: "Não encontrei essa informação nos documentos disponíveis."
-3. NUNCA invente informações, datas, números de processos, resoluções ou procedimentos.
-4. Quando citar uma resolução ou normativa, mencione a fonte específica do documento.
-5. Se a pergunta for ambígua, peça esclarecimentos antes de responder.
+REGRAS CRITICAS DE RESPOSTA (ZERO ALUCINACAO):
+1. RESPONDA APENAS com base nas informacoes contidas no contexto fornecido abaixo.
+2. Se a informacao nao estiver no contexto, diga claramente: "Nao encontrei essa informacao nos documentos disponiveis."
+3. NUNCA invente informacoes, datas, numeros de processos, resolucoes ou procedimentos.
+4. Quando citar uma resolucao ou normativa, mencione a fonte especifica do documento.
+5. Se a pergunta for ambigua, peca esclarecimentos antes de responder.
 
 FORMATO DE RESPOSTA:
-- Para processos administrativos: Explique O QUÊ fazer, ONDE fazer (sistema/setor), COMO fazer (passos) e POR QUÊ (normativa aplicável).
-- Para processos acadêmicos: Indique requisitos, prazos e documentação necessária conforme os documentos.
-- Seja objetivo e direto, mas completo nas explicações.
+- Para processos administrativos: Explique O QUE fazer, ONDE fazer (sistema/setor), COMO fazer (passos) e POR QUE (normativa aplicavel).
+- Para processos academicos: Indique requisitos, prazos e documentacao necessaria conforme os documentos.
+- Seja objetivo e direto, mas completo nas explicacoes.
 
 CONTEXTO DOS DOCUMENTOS:
 {context}
 
-PERGUNTA DO USUÁRIO:
+PERGUNTA DO USUARIO:
 {question}
 
 RESPOSTA (baseada APENAS no contexto acima):"""
@@ -59,7 +58,7 @@ class RAGService:
         self.vectorstore_path = Path(vectorstore_path or os.getenv("VECTORSTORE_DIR", "backend/vectorstore"))
         self.vectorstore_path.mkdir(parents=True, exist_ok=True)
         self.data_dir = Path(data_dir or os.getenv("DATA_DIR", "backend/data"))
-        self.embedding_provider = embedding_provider or os.getenv("EMBEDDING_PROVIDER", "openai")
+        self.embedding_provider = embedding_provider or os.getenv("EMBEDDING_PROVIDER", "huggingface")
         self.document_processor = DocumentProcessor(data_dir=str(self.data_dir))
         self.llm_provider = LLMProvider()
         self.vectorstore: Optional[Chroma] = None
@@ -70,16 +69,21 @@ class RAGService:
     
     def _initialize_embeddings(self):
         """Initialize embeddings based on provider."""
+        logger.info(f"Initializing embeddings with provider: {self.embedding_provider}")
+        
         if self.embedding_provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI embeddings")
-            self.embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+            self.embeddings = OpenAIEmbeddings(api_key=api_key)
         elif self.embedding_provider == "huggingface":
             model_name = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+            logger.info(f"Loading HuggingFace embeddings model: {model_name}")
             self.embeddings = HuggingFaceEmbeddings(model_name=model_name)
         else:
             raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
+        
+        logger.info("Embeddings initialized successfully")
     
     def _initialize_vectorstore(self):
         """Initialize or load the ChromaDB vector store."""
@@ -210,3 +214,10 @@ class RAGService:
             return self.vectorstore._collection.count()
         except Exception:
             return 0
+    
+    def get_provider_info(self) -> Dict[str, str]:
+        """Get information about the current LLM and embedding providers."""
+        return {
+            "llm_provider": self.llm_provider.get_provider_name(),
+            "embedding_provider": self.embedding_provider
+        }
