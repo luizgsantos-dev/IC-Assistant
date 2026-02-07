@@ -1,59 +1,83 @@
 """Document management routes."""
-from fastapi import APIRouter, HTTPException
-from pathlib import Path
-from typing import List, Optional
-import os
 import logging
-from ..models.chat import DocumentInfo, DocumentListResponse
+
+from fastapi import APIRouter, HTTPException, Depends
+
+from ..models.chat import DocumentInfo, DocumentListResponse, ProviderInfo
 from ..services.rag_service import RAGService
+from ..main import get_rag_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-# Initialize RAG service (singleton pattern)
-_rag_service: Optional[RAGService] = None
-
-
-def get_rag_service() -> RAGService:
-    """Get or create the RAG service instance."""
-    global _rag_service
-    if _rag_service is None:
-        _rag_service = RAGService()
-    return _rag_service
-
 
 @router.get("", response_model=DocumentListResponse)
-async def list_documents():
+async def list_documents(
+    rag_service: RAGService = Depends(get_rag_service),
+):
     """List all documents in the data directory."""
     try:
-        data_dir = Path(os.getenv("DATA_DIR", "backend/data"))
-        data_dir.mkdir(parents=True, exist_ok=True)
+        # Get document list from processor
+        docs = rag_service.document_processor.get_document_list()
         
-        supported_extensions = {".pdf", ".txt", ".md", ".markdown"}
-        documents = []
+        documents = [
+            DocumentInfo(
+                filename=doc["filename"],
+                file_type=doc["file_type"],
+                size_bytes=doc.get("size_bytes"),
+                processed=True,
+            )
+            for doc in docs
+        ]
         
-        for file_path in data_dir.iterdir():
-            if file_path.is_file() and file_path.suffix.lower() in supported_extensions:
-                documents.append(DocumentInfo(
-                    filename=file_path.name,
-                    file_type=file_path.suffix.lower(),
-                    processed=True  # Could check vectorstore to verify
-                ))
+        return DocumentListResponse(
+            documents=documents,
+            total_chunks=rag_service.get_document_count(),
+        )
         
-        return DocumentListResponse(documents=documents)
     except Exception as e:
         logger.error(f"Error listing documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao listar documentos: {str(e)}",
+        )
 
 
 @router.post("/refresh")
-async def refresh_documents():
+async def refresh_documents(
+    rag_service: RAGService = Depends(get_rag_service),
+):
     """Manually trigger document processing and vectorstore update."""
     try:
-        rag_service = get_rag_service()
-        rag_service.update_documents()
-        return {"status": "success", "message": "Documents processed and vectorstore updated"}
+        chunks_count = rag_service.update_documents()
+        
+        return {
+            "status": "success",
+            "message": f"Documentos processados com sucesso",
+            "chunks_count": chunks_count,
+        }
+        
     except Exception as e:
         logger.error(f"Error refreshing documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao atualizar documentos: {str(e)}",
+        )
+
+
+@router.get("/info", response_model=ProviderInfo)
+async def get_info(
+    rag_service: RAGService = Depends(get_rag_service),
+):
+    """Get information about the current configuration."""
+    try:
+        info = rag_service.get_provider_info()
+        return ProviderInfo(**info)
+        
+    except Exception as e:
+        logger.error(f"Error getting info: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao obter informacoes: {str(e)}",
+        )

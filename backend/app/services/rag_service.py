@@ -1,223 +1,372 @@
-"""RAG service for semantic search and response generation."""
-import os
+"""RAG service for semantic search and response generation.
+
+Supports conversation history and streaming responses.
+"""
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from langchain_community.vectorstores import Chroma
+from typing import Optional, Dict, Any, List, AsyncGenerator
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.chains import RetrievalQA
-from langchain_core.prompts import PromptTemplate
 from langchain_core.documents import Document
-import chromadb
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
+from ..config import Settings, get_settings
 from .llm_provider import LLMProvider
 from .document_processor import DocumentProcessor
 
 logger = logging.getLogger(__name__)
 
-# IC-UFMT specific prompt template with zero-hallucination guardrails
-IC_UFMT_PROMPT_TEMPLATE = """Voce e o Assistente Inteligente do Instituto de Computacao (IC) da Universidade Federal de Mato Grosso (UFMT).
+# Portuguese RAG prompt for IC-UFMT
+RAG_SYSTEM_PROMPT = """Voce e o assistente do Instituto de Computacao (IC) da Universidade Federal de Mato Grosso (UFMT).
 
-Seu papel e auxiliar servidores, docentes e discentes com informacoes precisas sobre:
+Seu papel e ajudar alunos, professores e funcionarios com informacoes sobre:
 - Processos administrativos e burocraticos (SEI, solicitacoes de material, resolucoes CONSEP/UFMT)
 - Processos academicos (aproveitamento de materias, matriculas, prazos, requisitos de graduacao)
-- Informacoes institucionais (laboratorios de pesquisa, eventos como IC-NEXUS, iniciativas estudantis como CACOMP)
+- Informacoes institucionais (laboratorios de pesquisa, eventos, iniciativas estudantis como CACOMP)
 - Calendario academico e procedimentos oficiais
 
-REGRAS CRITICAS DE RESPOSTA (ZERO ALUCINACAO):
-1. RESPONDA APENAS com base nas informacoes contidas no contexto fornecido abaixo.
-2. Se a informacao nao estiver no contexto, diga claramente: "Nao encontrei essa informacao nos documentos disponiveis."
-3. NUNCA invente informacoes, datas, numeros de processos, resolucoes ou procedimentos.
-4. Quando citar uma resolucao ou normativa, mencione a fonte especifica do documento.
-5. Se a pergunta for ambigua, peca esclarecimentos antes de responder.
+REGRAS IMPORTANTES:
+1. Use APENAS as informacoes do contexto abaixo para responder.
+2. Se a informacao NAO estiver no contexto, diga claramente: "Nao encontrei essa informacao nos documentos disponiveis."
+3. NUNCA invente informacoes, datas, numeros de processos ou procedimentos.
+4. Quando citar uma resolucao ou normativa, mencione a fonte do documento.
+5. Responda sempre em portugues de forma clara e objetiva.
 
 FORMATO DE RESPOSTA:
-- Para processos administrativos: Explique O QUE fazer, ONDE fazer (sistema/setor), COMO fazer (passos) e POR QUE (normativa aplicavel).
-- Para processos academicos: Indique requisitos, prazos e documentacao necessaria conforme os documentos.
-- Seja objetivo e direto, mas completo nas explicacoes.
+- Para processos: Explique O QUE fazer, ONDE fazer (sistema/setor), COMO fazer (passos).
+- Para informacoes: Seja direto e cite a fonte quando possivel.
 
 CONTEXTO DOS DOCUMENTOS:
-{context}
-
-PERGUNTA DO USUARIO:
-{question}
-
-RESPOSTA (baseada APENAS no contexto acima):"""
+{context}"""
 
 
 class RAGService:
-    """RAG service using ChromaDB for vector storage and semantic search."""
+    """RAG service using ChromaDB for vector storage and semantic search.
     
-    def __init__(
-        self,
-        vectorstore_path: Optional[str] = None,
-        data_dir: Optional[str] = None,
-        embedding_provider: Optional[str] = None
-    ):
-        self.vectorstore_path = Path(vectorstore_path or os.getenv("VECTORSTORE_DIR", "backend/vectorstore"))
+    Supports conversation history and streaming responses.
+    """
+    
+    def __init__(self, settings: Optional[Settings] = None):
+        """Initialize the RAG service.
+        
+        Args:
+            settings: Application settings. If None, will use global settings.
+        """
+        self.settings = settings or get_settings()
+        self.vectorstore_path = Path(self.settings.vectorstore_dir)
         self.vectorstore_path.mkdir(parents=True, exist_ok=True)
-        self.data_dir = Path(data_dir or os.getenv("DATA_DIR", "backend/data"))
-        self.embedding_provider = embedding_provider or os.getenv("EMBEDDING_PROVIDER", "huggingface")
-        self.document_processor = DocumentProcessor(data_dir=str(self.data_dir))
-        self.llm_provider = LLMProvider()
+        
+        self.document_processor = DocumentProcessor(settings=self.settings)
+        self.llm_provider = LLMProvider(settings=self.settings)
+        
         self.vectorstore: Optional[Chroma] = None
         self.embeddings = None
+        
         self._initialize_embeddings()
         self._initialize_vectorstore()
-        self._setup_file_watcher()
     
-    def _initialize_embeddings(self):
-        """Initialize embeddings based on provider."""
-        logger.info(f"Initializing embeddings with provider: {self.embedding_provider}")
+    def _initialize_embeddings(self) -> None:
+        """Initialize embeddings based on provider setting."""
+        provider = self.settings.embedding_provider
+        logger.info(f"Initializing embeddings with provider: {provider}")
         
-        if self.embedding_provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
+        if provider == "openai":
+            api_key = self.settings.openai_api_key
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI embeddings")
             self.embeddings = OpenAIEmbeddings(api_key=api_key)
-        elif self.embedding_provider == "huggingface":
-            model_name = os.getenv("HUGGINGFACE_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+        elif provider == "huggingface":
+            model_name = self.settings.huggingface_embedding_model
             logger.info(f"Loading HuggingFace embeddings model: {model_name}")
-            self.embeddings = HuggingFaceEmbeddings(model_name=model_name)
+            logger.info("First load may take a few minutes to download the model...")
+            self.embeddings = HuggingFaceEmbeddings(
+                model_name=model_name,
+                model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True},
+            )
         else:
-            raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
+            raise ValueError(f"Unsupported embedding provider: {provider}")
         
         logger.info("Embeddings initialized successfully")
     
-    def _initialize_vectorstore(self):
+    def _initialize_vectorstore(self) -> None:
         """Initialize or load the ChromaDB vector store."""
         try:
-            # Try to load existing vectorstore
-            if (self.vectorstore_path / "chroma.sqlite3").exists():
+            chroma_db_path = self.vectorstore_path / "chroma.sqlite3"
+            
+            if chroma_db_path.exists():
                 logger.info("Loading existing vectorstore...")
                 self.vectorstore = Chroma(
                     persist_directory=str(self.vectorstore_path),
-                    embedding_function=self.embeddings
+                    embedding_function=self.embeddings,
                 )
-                logger.info("Vectorstore loaded successfully")
+                count = self.get_document_count()
+                logger.info(f"Vectorstore loaded with {count} chunks")
             else:
                 logger.info("Creating new vectorstore...")
-                # Create empty vectorstore first
                 self.vectorstore = Chroma(
                     persist_directory=str(self.vectorstore_path),
-                    embedding_function=self.embeddings
+                    embedding_function=self.embeddings,
                 )
-                # Process and add initial documents (if any)
+                
+                # Process initial documents if any exist
                 try:
                     self.update_documents()
                 except Exception as e:
-                    logger.warning(f"No documents found or error processing documents: {e}")
-                    # Continue with empty vectorstore
+                    logger.warning(f"No documents to process or error: {e}")
+                    
         except Exception as e:
             logger.error(f"Error initializing vectorstore: {e}")
             raise
     
-    def update_documents(self):
-        """Process all documents and update the vector store."""
-        try:
-            logger.info("Processing documents and updating vectorstore...")
-            chunks = self.document_processor.process_all_documents()
-            
-            if not chunks:
-                logger.warning("No documents found to process")
-                return
-            
-            # Convert chunks to LangChain documents
-            documents = []
-            for chunk in chunks:
-                doc = Document(
-                    page_content=chunk["text"],
-                    metadata={
-                        "source": chunk["source"],
-                        "chunk_index": chunk["chunk_index"],
-                        "file_path": chunk["file_path"]
-                    }
-                )
-                documents.append(doc)
-            
-            # Clear existing collection and add new documents
-            if self.vectorstore:
-                # Delete the collection and recreate it
-                try:
-                    client = chromadb.PersistentClient(path=str(self.vectorstore_path))
-                    client.delete_collection("langchain")
-                except Exception:
-                    pass  # Collection might not exist
-                
-                self.vectorstore = Chroma.from_documents(
-                    documents=documents,
-                    embedding=self.embeddings,
-                    persist_directory=str(self.vectorstore_path)
-                )
-            
-            logger.info(f"Vectorstore updated with {len(documents)} document chunks")
-        except Exception as e:
-            logger.error(f"Error updating documents: {e}")
-            raise
-    
-    def _setup_file_watcher(self):
-        """Setup file watcher to automatically update vectorstore on document changes."""
-        def on_document_change():
-            logger.info("Documents changed, updating vectorstore...")
+    def update_documents(self) -> int:
+        """Process all documents and update the vector store.
+        
+        Returns:
+            Number of chunks added to the vectorstore.
+        """
+        logger.info("Processing documents and updating vectorstore...")
+        chunks = self.document_processor.process_all_documents()
+        
+        if not chunks:
+            logger.warning("No documents found to process")
+            return 0
+        
+        # Convert to LangChain documents
+        documents = []
+        for chunk in chunks:
+            doc = Document(
+                page_content=chunk["text"],
+                metadata={
+                    "source": chunk["source"],
+                    "chunk_index": chunk["chunk_index"],
+                    "file_path": chunk["file_path"],
+                },
+            )
+            documents.append(doc)
+        
+        # Clear and recreate vectorstore
+        if self.vectorstore:
             try:
-                self.update_documents()
-            except Exception as e:
-                logger.error(f"Error updating vectorstore after file change: {e}")
+                # Delete existing collection
+                self.vectorstore.delete_collection()
+            except Exception:
+                pass
         
-        self.document_processor.start_file_watcher(on_document_change)
+        # Create new vectorstore with documents
+        self.vectorstore = Chroma.from_documents(
+            documents=documents,
+            embedding=self.embeddings,
+            persist_directory=str(self.vectorstore_path),
+        )
+        
+        logger.info(f"Vectorstore updated with {len(documents)} chunks")
+        return len(documents)
     
-    def query(self, question: str, k: int = 4) -> Dict[str, Any]:
-        """Query the RAG system with a question."""
+    def _retrieve_context(self, question: str, k: int = 4) -> tuple[str, List[str]]:
+        """Retrieve relevant context for a question.
+        
+        Args:
+            question: The user's question.
+            k: Number of documents to retrieve.
+            
+        Returns:
+            Tuple of (context_text, list_of_sources)
+        """
         if not self.vectorstore:
-            raise RuntimeError("Vectorstore not initialized")
+            return "", []
         
-        # Create a retrieval chain
-        llm = self.llm_provider.get_llm()
+        try:
+            docs = self.vectorstore.similarity_search(question, k=k)
+            
+            if not docs:
+                return "", []
+            
+            context_parts = []
+            sources = set()
+            
+            for doc in docs:
+                context_parts.append(doc.page_content)
+                source = doc.metadata.get("source", "Documento desconhecido")
+                sources.add(source)
+            
+            context = "\n\n---\n\n".join(context_parts)
+            return context, list(sources)
+            
+        except Exception as e:
+            logger.error(f"Error retrieving context: {e}")
+            return "", []
+    
+    def query(
+        self,
+        question: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        k: int = 4,
+    ) -> Dict[str, Any]:
+        """Query the RAG system with a question.
         
-        # Use IC-UFMT specific prompt with zero-hallucination guardrails
-        PROMPT = PromptTemplate(
-            template=IC_UFMT_PROMPT_TEMPLATE,
-            input_variables=["context", "question"]
-        )
+        Args:
+            question: The user's question.
+            conversation_history: Optional list of previous messages.
+            k: Number of documents to retrieve.
+            
+        Returns:
+            Dict with answer and sources.
+        """
+        # Check if vectorstore has documents
+        if self.get_document_count() == 0:
+            return {
+                "answer": "Nenhum documento foi carregado ainda. Por favor, adicione documentos na pasta 'data/' e atualize o sistema.",
+                "sources": [],
+            }
         
-        # Create retrieval QA chain
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            chain_type="stuff",
-            retriever=self.vectorstore.as_retriever(search_kwargs={"k": k}),
-            chain_type_kwargs={"prompt": PROMPT},
-            return_source_documents=True
-        )
+        # Retrieve context
+        context, sources = self._retrieve_context(question, k=k)
         
-        # Execute query
-        result = qa_chain.invoke({"query": question})
+        if not context:
+            return {
+                "answer": "Nao encontrei informacoes relevantes nos documentos disponiveis para responder sua pergunta.",
+                "sources": [],
+            }
         
-        # Extract sources
-        sources = []
-        if "source_documents" in result:
-            sources = list(set([
-                doc.metadata.get("source", "Unknown")
-                for doc in result["source_documents"]
-            ]))
+        # Build messages
+        system_prompt = RAG_SYSTEM_PROMPT.format(context=context)
+        messages = [SystemMessage(content=system_prompt)]
         
-        return {
-            "answer": result.get("result", ""),
-            "sources": sources
+        # Add conversation history
+        if conversation_history:
+            for msg in conversation_history[-6:]:  # Last 6 messages for context
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if role == "user":
+                    messages.append(HumanMessage(content=content))
+                elif role == "assistant":
+                    messages.append(AIMessage(content=content))
+        
+        messages.append(HumanMessage(content=question))
+        
+        # Get response from LLM
+        try:
+            answer = self.llm_provider.invoke(messages)
+            return {
+                "answer": answer,
+                "sources": sources,
+            }
+        except Exception as e:
+            logger.error(f"Error getting LLM response: {e}")
+            return {
+                "answer": f"Erro ao processar sua pergunta: {str(e)}",
+                "sources": [],
+            }
+    
+    async def query_stream(
+        self,
+        question: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        k: int = 4,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Query the RAG system with streaming response.
+        
+        Args:
+            question: The user's question.
+            conversation_history: Optional list of previous messages.
+            k: Number of documents to retrieve.
+            
+        Yields:
+            Dicts with token chunks and metadata.
+        """
+        # Check if vectorstore has documents
+        if self.get_document_count() == 0:
+            yield {
+                "type": "error",
+                "content": "Nenhum documento foi carregado ainda. Por favor, adicione documentos na pasta 'data/' e atualize o sistema.",
+            }
+            return
+        
+        # Retrieve context
+        context, sources = self._retrieve_context(question, k=k)
+        
+        if not context:
+            yield {
+                "type": "error",
+                "content": "Nao encontrei informacoes relevantes nos documentos disponiveis para responder sua pergunta.",
+            }
+            return
+        
+        # Send sources first
+        yield {
+            "type": "sources",
+            "content": sources,
         }
+        
+        # Build messages
+        system_prompt = RAG_SYSTEM_PROMPT.format(context=context)
+        messages = [SystemMessage(content=system_prompt)]
+        
+        # Add conversation history
+        if conversation_history:
+            for msg in conversation_history[-6:]:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if role == "user":
+                    messages.append(HumanMessage(content=content))
+                elif role == "assistant":
+                    messages.append(AIMessage(content=content))
+        
+        messages.append(HumanMessage(content=question))
+        
+        # Stream response
+        try:
+            async for token in self.llm_provider.stream(messages):
+                yield {
+                    "type": "token",
+                    "content": token,
+                }
+            
+            yield {"type": "done"}
+            
+        except Exception as e:
+            logger.error(f"Error streaming LLM response: {e}")
+            yield {
+                "type": "error",
+                "content": f"Erro ao processar sua pergunta: {str(e)}",
+            }
     
     def get_document_count(self) -> int:
-        """Get the number of documents in the vectorstore."""
+        """Get the number of document chunks in the vectorstore."""
         if not self.vectorstore:
             return 0
         try:
-            return self.vectorstore._collection.count()
+            collection = self.vectorstore._collection
+            if collection:
+                return collection.count()
+            return 0
         except Exception:
             return 0
     
     def get_provider_info(self) -> Dict[str, str]:
-        """Get information about the current LLM and embedding providers."""
+        """Get information about the current providers."""
         return {
             "llm_provider": self.llm_provider.get_provider_name(),
-            "embedding_provider": self.embedding_provider
+            "llm_model": self.llm_provider.get_model_name(),
+            "embedding_provider": self.settings.embedding_provider,
+            "document_count": self.get_document_count(),
         }
+    
+    def start_file_watcher(self) -> None:
+        """Start watching for document changes."""
+        def on_change():
+            logger.info("Documents changed, updating vectorstore...")
+            try:
+                self.update_documents()
+            except Exception as e:
+                logger.error(f"Error updating vectorstore: {e}")
+        
+        self.document_processor.start_file_watcher(on_change)
+    
+    def stop_file_watcher(self) -> None:
+        """Stop watching for document changes."""
+        self.document_processor.stop_file_watcher()
